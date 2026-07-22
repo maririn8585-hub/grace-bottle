@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#090909" />
+  <title>GRACE Bottle Manager</title>
+  <style>
+    :root{
+      --bg:#090909;--panel:#141414;--panel2:#1c1c1c;--gold:#d4af37;
+      --gold2:#f0d77a;--text:#f7f2e5;--muted:#aaa28f;--danger:#d85c5c;
+      --line:#393326;--ok:#73b98a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#050505,#111);color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
+    header{position:sticky;top:0;z-index:10;background:rgba(9,9,9,.94);backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--line);padding:18px 16px 14px}
+    .brand{max-width:980px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{font-family:Georgia,serif;letter-spacing:.16em;color:var(--gold2);font-size:23px;margin:0}
+    .sub{font-size:11px;color:var(--muted);letter-spacing:.12em;margin-top:4px}
+    main{max-width:980px;margin:auto;padding:18px 14px 70px}
+    .toolbar{display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:16px}
+    input,textarea,select{width:100%;background:#0d0d0d;color:var(--text);border:1px solid #49402b;
+      border-radius:10px;padding:12px;font-size:16px;outline:none}
+    input:focus,textarea:focus,select:focus{border-color:var(--gold)}
+    button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;font-size:14px;cursor:pointer}
+    .primary{background:linear-gradient(135deg,#a77c10,#e1c25a);color:#151006}
+    .secondary{background:#29251c;color:var(--gold2);border:1px solid #51462d}
+    .danger{background:#321919;color:#ffb0b0;border:1px solid #6d3030}
+    .ghost{background:transparent;color:var(--muted);border:1px solid #3b382f}
+    .empty{text-align:center;padding:55px 18px;border:1px dashed #4a412d;border-radius:16px;color:var(--muted)}
+    .customer-card{background:linear-gradient(145deg,#171717,#101010);border:1px solid var(--line);
+      border-radius:16px;margin-bottom:14px;overflow:hidden;box-shadow:0 12px 35px rgba(0,0,0,.22)}
+    .customer-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px}
+    .customer-name{font-size:20px;font-weight:800;color:var(--gold2)}
+    .customer-meta{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5}
+    .badge{display:inline-block;background:#2b2516;color:var(--gold2);border:1px solid #504526;
+      border-radius:999px;padding:4px 9px;font-size:12px;margin-top:7px}
+    .head-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+    .head-actions button{padding:8px 10px;font-size:12px}
+    .bottles{border-top:1px solid var(--line);padding:12px}
+    .bottle{display:grid;grid-template-columns:68px 1fr auto;gap:12px;align-items:center;
+      background:#0c0c0c;border:1px solid #2e2a20;border-radius:13px;padding:12px;margin-bottom:10px}
+    .bottle:last-child{margin-bottom:0}
+    .bottle-visual{height:96px;width:45px;margin:auto;border:2px solid #a88b3b;border-radius:8px 8px 12px 12px;
+      position:relative;overflow:hidden;background:#171717}
+    .bottle-neck{width:22px;height:15px;border:2px solid #a88b3b;border-bottom:0;position:absolute;top:-15px;left:9px;border-radius:4px 4px 0 0}
+    .liquid{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(#e3c763,#8b6013);transition:.3s}
+    .percent{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:800;text-shadow:0 1px 3px #000}
+    .bottle-title{font-weight:800;font-size:16px;color:#fff}
+    .bottle-info{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.55}
+    .bottle-actions{display:flex;flex-direction:column;gap:6px}
+    .bottle-actions button{padding:7px 9px;font-size:12px}
+    dialog{width:min(620px,calc(100% - 24px));border:1px solid #5a4b27;border-radius:18px;background:#151515;color:var(--text);padding:0}
+    dialog::backdrop{background:rgba(0,0,0,.75);backdrop-filter:blur(4px)}
+    .modal-head{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+    .modal-head h2{font-size:18px;color:var(--gold2);margin:0}
+    .form{padding:16px 18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .full{grid-column:1/-1}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
+    .modal-actions{display:flex;justify-content:flex-end;gap:9px;padding:0 18px 18px}
+    .status{font-size:12px;color:var(--muted);text-align:center;margin:10px 0 0}
+    .sync-ok{color:var(--ok)}
+    .sync-bad{color:#ff9d9d}
+    @media(max-width:620px){
+      .toolbar{grid-template-columns:1fr}.toolbar button{width:100%}
+      .customer-head{flex-direction:column}.head-actions{justify-content:flex-start}
+      .bottle{grid-template-columns:60px 1fr}.bottle-actions{grid-column:1/-1;flex-direction:row}
+      .form{grid-template-columns:1fr}.full{grid-column:auto}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div><h1>GRACE</h1><div class="sub">BOTTLE MANAGER</div></div>
+    <button class="primary" onclick="openCustomerModal()">＋ お客様追加</button>
+  </div>
+</header>
+
+<main>
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="お客様名・会社名・あだ名・ボトル名・番号で検索" oninput="render()" />
+    <button class="secondary" onclick="exportBackup()">バックアップ保存</button>
+  </div>
+  <div id="list"></div>
+  <div id="status" class="status">Firebaseに接続しています…</div>
+</main>
+
+<dialog id="customerDialog">
+  <div class="modal-head"><h2 id="customerTitle">お客様を追加</h2><button class="ghost" onclick="customerDialog.close()">閉じる</button></div>
+  <form id="customerForm" onsubmit="saveCustomer(event)">
+    <div class="form">
+      <div><label>お客様名 *</label><input id="cName" required /></div>
+      <div><label>あだ名</label><input id="cNickname" /></div>
+      <div class="full"><label>会社名</label><input id="cCompany" /></div>
+      <div class="full"><label>お客様メモ</label><textarea id="cMemo" rows="3"></textarea></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="ghost" onclick="customerDialog.close()">キャンセル</button><button class="primary">保存</button></div>
+  </form>
+</dialog>
+
+<dialog id="bottleDialog">
+  <div class="modal-head"><h2 id="bottleTitle">ボトルを追加</h2><button class="ghost" onclick="bottleDialog.close()">閉じる</button></div>
+  <form id="bottleForm" onsubmit="saveBottle(event)">
+    <div class="form">
+      <div><label>ボトル名 *</label><input id="bName" required placeholder="例：吉四六" /></div>
+      <div><label>ボトル番号</label><input id="bNumber" placeholder="例：A-12" /></div>
+      <div><label>保管場所</label><input id="bShelf" placeholder="例：棚3段目" /></div>
+      <div><label>残量：<strong id="remainLabel">100%</strong></label><input id="bRemain" type="range" min="0" max="100" step="5" value="100" oninput="remainLabel.textContent=this.value+'%'" /></div>
+      <div class="full"><label>メモ</label><textarea id="bMemo" rows="3"></textarea></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="ghost" onclick="bottleDialog.close()">キャンセル</button><button class="primary">保存</button></div>
+  </form>
+</dialog>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD86EJ0Q08zhMZPSep4qUkNg5sAfZo0U5E",
+  authDomain: "grace-bottle.firebaseapp.com",
+  projectId: "grace-bottle",
+  storageBucket: "grace-bottle.firebasestorage.app",
+  messagingSenderId: "284417024203",
+  appId: "1:284417024203:web:c2c8e55a3c0286a2c6fb4e"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const collection = db.collection("grace_customers");
+let customers = [];
+let editingCustomerId = null;
+let bottleCustomerId = null;
+let editingBottleId = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+collection.orderBy("name").onSnapshot(snapshot => {
+  customers = snapshot.docs.map(doc => ({id:doc.id, ...doc.data()}));
+  $("status").textContent = "● クラウド同期済み";
+  $("status").className = "status sync-ok";
+  render();
+}, err => {
+  console.error(err);
+  $("status").textContent = "Firebaseに接続できません。ルール設定を確認してください。";
+  $("status").className = "status sync-bad";
+});
+
+function render(){
+  const q = $("search").value.trim().toLowerCase();
+  const filtered = customers.filter(c => {
+    const bottleText = (c.bottles || []).map(b => `${b.name} ${b.number} ${b.shelf} ${b.memo}`).join(" ");
+    return `${c.name} ${c.nickname} ${c.company} ${c.memo} ${bottleText}`.toLowerCase().includes(q);
+  });
+  if(!filtered.length){
+    $("list").innerHTML = `<div class="empty">${q ? "検索に一致するデータがありません" : "まだお客様が登録されていません。<br>右上の「お客様追加」から始めてください。"}</div>`;
+    return;
+  }
+  $("list").innerHTML = filtered.map(c => {
+    const bottles = (c.bottles || []);
+    return `<section class="customer-card">
+      <div class="customer-head">
+        <div>
+          <div class="customer-name">${esc(c.name)}</div>
+          <div class="customer-meta">${c.nickname ? `あだ名：${esc(c.nickname)}<br>` : ""}${c.company ? `会社：${esc(c.company)}<br>` : ""}${c.memo ? `メモ：${esc(c.memo)}` : ""}</div>
+          <span class="badge">ボトル ${bottles.length}本</span>
+        </div>
+        <div class="head-actions">
+          <button class="primary" onclick="openBottleModal('${c.id}')">＋ ボトル追加</button>
+          <button class="secondary" onclick="editCustomer('${c.id}')">お客様編集</button>
+          <button class="danger" onclick="deleteCustomer('${c.id}')">削除</button>
+        </div>
+      </div>
+      <div class="bottles">
+        ${bottles.length ? bottles.map(b => bottleHtml(c.id,b)).join("") : `<div style="color:var(--muted);padding:12px">ボトルはまだ登録されていません。</div>`}
+      </div>
+    </section>`;
+  }).join("");
+}
+function bottleHtml(customerId,b){
+  const remain = Number(b.remain ?? 100);
+  return `<div class="bottle">
+    <div class="bottle-visual"><div class="bottle-neck"></div><div class="liquid" style="height:${remain}%"></div><div class="percent">${remain}%</div></div>
+    <div><div class="bottle-title">${esc(b.name)}</div>
+      <div class="bottle-info">${b.number ? `番号：${esc(b.number)}<br>` : ""}${b.shelf ? `場所：${esc(b.shelf)}<br>` : ""}${b.memo ? `メモ：${esc(b.memo)}` : ""}</div>
+    </div>
+    <div class="bottle-actions"><button class="secondary" onclick="editBottle('${customerId}','${b.id}')">編集</button><button class="danger" onclick="deleteBottle('${customerId}','${b.id}')">削除</button></div>
+  </div>`;
+}
+function openCustomerModal(){
+  editingCustomerId = null;
+  $("customerTitle").textContent = "お客様を追加";
+  $("customerForm").reset();
+  customerDialog.showModal();
+}
+function editCustomer(id){
+  const c = customers.find(x=>x.id===id); if(!c) return;
+  editingCustomerId=id; $("customerTitle").textContent="お客様を編集";
+  $("cName").value=c.name||""; $("cNickname").value=c.nickname||""; $("cCompany").value=c.company||""; $("cMemo").value=c.memo||"";
+  customerDialog.showModal();
+}
+async function saveCustomer(e){
+  e.preventDefault();
+  const data={name:$("cName").value.trim(),nickname:$("cNickname").value.trim(),company:$("cCompany").value.trim(),memo:$("cMemo").value.trim(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  try{
+    if(editingCustomerId) await collection.doc(editingCustomerId).update(data);
+    else await collection.add({...data,bottles:[],createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    customerDialog.close();
+  }catch(err){alert("保存できませんでした："+err.message)}
+}
+async function deleteCustomer(id){
+  const c=customers.find(x=>x.id===id); if(!c) return;
+  if(!confirm(`${c.name}様と登録ボトルをすべて削除しますか？`)) return;
+  try{await collection.doc(id).delete()}catch(err){alert("削除できませんでした："+err.message)}
+}
+function openBottleModal(customerId){
+  bottleCustomerId=customerId; editingBottleId=null; $("bottleTitle").textContent="ボトルを追加"; $("bottleForm").reset(); $("bRemain").value=100; $("remainLabel").textContent="100%"; bottleDialog.showModal();
+}
+function editBottle(customerId,bottleId){
+  const c=customers.find(x=>x.id===customerId); const b=(c?.bottles||[]).find(x=>x.id===bottleId); if(!b) return;
+  bottleCustomerId=customerId; editingBottleId=bottleId; $("bottleTitle").textContent="ボトルを編集";
+  $("bName").value=b.name||""; $("bNumber").value=b.number||""; $("bShelf").value=b.shelf||""; $("bRemain").value=b.remain??100; $("remainLabel").textContent=(b.remain??100)+"%"; $("bMemo").value=b.memo||"";
+  bottleDialog.showModal();
+}
+async function saveBottle(e){
+  e.preventDefault();
+  const c=customers.find(x=>x.id===bottleCustomerId); if(!c) return;
+  const bottle={id:editingBottleId||crypto.randomUUID(),name:$("bName").value.trim(),number:$("bNumber").value.trim(),shelf:$("bShelf").value.trim(),remain:Number($("bRemain").value),memo:$("bMemo").value.trim()};
+  const bottles=[...(c.bottles||[])];
+  if(editingBottleId){const i=bottles.findIndex(x=>x.id===editingBottleId); bottles[i]=bottle}else bottles.push(bottle);
+  try{await collection.doc(c.id).update({bottles,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});bottleDialog.close()}catch(err){alert("保存できませんでした："+err.message)}
+}
+async function deleteBottle(customerId,bottleId){
+  const c=customers.find(x=>x.id===customerId); const b=(c?.bottles||[]).find(x=>x.id===bottleId); if(!c||!b) return;
+  if(!confirm(`${b.name}を削除しますか？`)) return;
+  const bottles=(c.bottles||[]).filter(x=>x.id!==bottleId);
+  try{await collection.doc(customerId).update({bottles,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(err){alert("削除できませんでした："+err.message)}
+}
+function exportBackup(){
+  const clean=customers.map(({id,...rest})=>({id,...rest}));
+  const blob=new Blob([JSON.stringify({savedAt:new Date().toISOString(),customers:clean},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`GRACEボトルバックアップ_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
