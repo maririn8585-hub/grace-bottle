@@ -74,14 +74,14 @@
 <body>
 <header>
   <div class="brand">
-    <div><h1>GRACE</h1><div class="sub">BOTTLE MANAGER</div></div>
+    <div><h1>GRACE</h1><div class="sub">BOTTLE MANAGER · BIRTHDAY UPDATE</div></div>
     <button class="primary" onclick="openCustomerModal()">＋ お客様追加</button>
   </div>
 </header>
 
 <main>
   <div class="toolbar">
-    <input id="search" type="search" placeholder="お客様名・会社名・あだ名・ボトル名・番号で検索" oninput="render()" />
+    <input id="search" type="search" placeholder="お客様名・会社名・あだ名・誕生日・メモ・ボトル名・番号で検索" oninput="render()" />
     <button class="secondary" onclick="exportBackup()">バックアップ保存</button>
   </div>
   <div id="list"></div>
@@ -95,6 +95,7 @@
       <div><label>お客様名 *</label><input id="cName" required /></div>
       <div><label>あだ名</label><input id="cNickname" /></div>
       <div class="full"><label>会社名</label><input id="cCompany" /></div>
+      <div class="full"><label>誕生日</label><input id="cBirthday" type="date" /></div>
       <div class="full"><label>お客様メモ</label><textarea id="cMemo" rows="3"></textarea></div>
     </div>
     <div class="modal-actions"><button type="button" class="ghost" onclick="customerDialog.close()">キャンセル</button><button class="primary">保存</button></div>
@@ -137,6 +138,13 @@ let editingBottleId = null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+function formatBirthday(value){
+  if(!value) return "";
+  const parts=value.split("-");
+  if(parts.length!==3) return value;
+  return `${Number(parts[1])}月${Number(parts[2])}日`;
+}
+
 collection.orderBy("name").onSnapshot(snapshot => {
   customers = snapshot.docs.map(doc => ({id:doc.id, ...doc.data()}));
   $("status").textContent = "● クラウド同期済み";
@@ -152,7 +160,7 @@ function render(){
   const q = $("search").value.trim().toLowerCase();
   const filtered = customers.filter(c => {
     const bottleText = (c.bottles || []).map(b => `${b.name} ${b.number} ${b.shelf} ${b.memo}`).join(" ");
-    return `${c.name} ${c.nickname} ${c.company} ${c.memo} ${bottleText}`.toLowerCase().includes(q);
+    return `${c.name} ${c.nickname} ${c.company} ${c.birthday} ${formatBirthday(c.birthday)} ${c.memo} ${bottleText}`.toLowerCase().includes(q);
   });
   if(!filtered.length){
     $("list").innerHTML = `<div class="empty">${q ? "検索に一致するデータがありません" : "まだお客様が登録されていません。<br>右上の「お客様追加」から始めてください。"}</div>`;
@@ -164,7 +172,7 @@ function render(){
       <div class="customer-head">
         <div>
           <div class="customer-name">${esc(c.name)}</div>
-          <div class="customer-meta">${c.nickname ? `あだ名：${esc(c.nickname)}<br>` : ""}${c.company ? `会社：${esc(c.company)}<br>` : ""}${c.memo ? `メモ：${esc(c.memo)}` : ""}</div>
+          <div class="customer-meta">${c.nickname ? `あだ名：${esc(c.nickname)}<br>` : ""}${c.company ? `会社：${esc(c.company)}<br>` : ""}${c.birthday ? `誕生日：${formatBirthday(c.birthday)}<br>` : ""}${c.memo ? `メモ：${esc(c.memo)}` : ""}</div>
           <span class="badge">ボトル ${bottles.length}本</span>
         </div>
         <div class="head-actions">
@@ -198,12 +206,12 @@ function openCustomerModal(){
 function editCustomer(id){
   const c = customers.find(x=>x.id===id); if(!c) return;
   editingCustomerId=id; $("customerTitle").textContent="お客様を編集";
-  $("cName").value=c.name||""; $("cNickname").value=c.nickname||""; $("cCompany").value=c.company||""; $("cMemo").value=c.memo||"";
+  $("cName").value=c.name||""; $("cNickname").value=c.nickname||""; $("cCompany").value=c.company||""; $("cBirthday").value=c.birthday||""; $("cMemo").value=c.memo||"";
   customerDialog.showModal();
 }
 async function saveCustomer(e){
   e.preventDefault();
-  const data={name:$("cName").value.trim(),nickname:$("cNickname").value.trim(),company:$("cCompany").value.trim(),memo:$("cMemo").value.trim(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const data={name:$("cName").value.trim(),nickname:$("cNickname").value.trim(),company:$("cCompany").value.trim(),birthday:$("cBirthday").value,memo:$("cMemo").value.trim(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
   try{
     if(editingCustomerId) await collection.doc(editingCustomerId).update(data);
     else await collection.add({...data,bottles:[],createdAt:firebase.firestore.FieldValue.serverTimestamp()});
