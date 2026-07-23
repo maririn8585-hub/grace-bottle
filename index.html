@@ -159,6 +159,7 @@ let customers = [];
 let editingCustomerId = null;
 let bottleCustomerId = null;
 let editingBottleId = null;
+let pendingNewCustomerId = null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -174,6 +175,15 @@ collection.orderBy("name").onSnapshot(snapshot => {
  $("status").textContent = "● クラウド同期済み";
  $("status").className = "status sync-ok";
  render();
+
+ if(pendingNewCustomerId){
+  const newCustomerId = pendingNewCustomerId;
+  pendingNewCustomerId = null;
+  requestAnimationFrame(() => {
+   document.querySelector(`[data-customer-id="${newCustomerId}"]`)?.scrollIntoView({behavior:"smooth",block:"start"});
+   openBottleModal(newCustomerId);
+  });
+ }
 }, err => {
  console.error(err);
  $("status").textContent = "Firebaseに接続できません。ルール設定を確認してください。";
@@ -192,7 +202,7 @@ function render(){
  }
  $("list").innerHTML = filtered.map(c => {
   const bottles = (c.bottles || []);
-  return `<section class="customer-card">
+  return `<section class="customer-card" data-customer-id="${c.id}">
    <div class="customer-head">
     <div>
      <div class="customer-name">${esc(c.name)}</div>
@@ -265,10 +275,18 @@ async function saveCustomer(e){
  e.preventDefault();
  const data={name:$("cName").value.trim(),nickname:$("cNickname").value.trim(),company:$("cCompany").value.trim(),birthday:$("cBirthday").value,memo:$("cMemo").value.trim(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  try{
-  if(editingCustomerId) await collection.doc(editingCustomerId).update(data);
-  else await collection.add({...data,bottles:[],createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  if(editingCustomerId){
+   await collection.doc(editingCustomerId).update(data);
+  }else{
+   const docRef = await collection.add({...data,bottles:[],createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+   pendingNewCustomerId = docRef.id;
+   $("search").value = "";
+  }
   customerDialog.close();
- }catch(err){alert("保存できませんでした："+err.message)}
+ }catch(err){
+  pendingNewCustomerId = null;
+  alert("保存できませんでした："+err.message);
+ }
 }
 async function deleteCustomer(id){
  const c=customers.find(x=>x.id===id); if(!c) return;
