@@ -43,11 +43,23 @@
     .bottle{display:grid;grid-template-columns:68px 1fr auto;gap:12px;align-items:center;
       background:#0c0c0c;border:1px solid #2e2a20;border-radius:13px;padding:12px;margin-bottom:10px}
     .bottle:last-child{margin-bottom:0}
-    .bottle-visual{height:96px;width:45px;margin:auto;border:2px solid #a88b3b;border-radius:8px 8px 12px 12px;
-      position:relative;overflow:hidden;background:#171717}
-    .bottle-neck{width:22px;height:15px;border:2px solid #a88b3b;border-bottom:0;position:absolute;top:-15px;left:9px;border-radius:4px 4px 0 0}
-    .liquid{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(#e3c763,#8b6013);transition:.3s}
-    .percent{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:800;text-shadow:0 1px 3px #000}
+    .bottle-visual{
+      width:72px;height:126px;margin:auto;position:relative;display:flex;
+      align-items:flex-end;justify-content:center;filter:drop-shadow(0 8px 10px rgba(0,0,0,.45))
+    }
+    .bottle-svg{width:68px;height:122px;overflow:visible}
+    .bottle-glass{fill:#141414;stroke:#d6b95f;stroke-width:3}
+    .bottle-cap{fill:#d6b95f}
+    .bottle-label{fill:#201b10;stroke:#d6b95f;stroke-width:1.5}
+    .bottle-label-text{fill:#f4dc8b;font-size:11px;font-weight:800;text-anchor:middle}
+    .bottle-percent-text{fill:#fff;font-size:12px;font-weight:900;text-anchor:middle;
+      paint-order:stroke;stroke:#000;stroke-width:3px;stroke-linejoin:round}
+    .liquid-wave{fill:url(#liquidGradient)}
+    .liquid-low{fill:#c55a45}
+    .bottle-shine{fill:none;stroke:rgba(255,255,255,.35);stroke-width:2;stroke-linecap:round}
+    .remain-bar{height:7px;background:#262116;border-radius:999px;overflow:hidden;margin-top:8px;border:1px solid #4e4328}
+    .remain-fill{height:100%;background:linear-gradient(90deg,#8a5d12,#f0d77a)}
+    .remain-fill.low{background:linear-gradient(90deg,#7f211d,#e06555)}
     .bottle-title{font-weight:800;font-size:16px;color:#fff}
     .bottle-info{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.55}
     .bottle-actions{display:flex;flex-direction:column;gap:6px}
@@ -74,7 +86,7 @@
 <body>
 <header>
   <div class="brand">
-    <div><h1>GRACE</h1><div class="sub">BOTTLE MANAGER · BIRTHDAY UPDATE</div></div>
+    <div><h1>GRACE</h1><div class="sub">BOTTLE MANAGER · BOTTLE ART UPDATE</div></div>
     <button class="primary" onclick="openCustomerModal()">＋ お客様追加</button>
   </div>
 </header>
@@ -188,11 +200,36 @@ function render(){
   }).join("");
 }
 function bottleHtml(customerId,b){
-  const remain = Number(b.remain ?? 100);
+  const remain = Math.max(0, Math.min(100, Number(b.remain ?? 100)));
+  const liquidTop = 103 - (remain * 0.78);
+  const clipHeight = remain * 0.78;
+  const lowClass = remain <= 20 ? " low" : "";
   return `<div class="bottle">
-    <div class="bottle-visual"><div class="bottle-neck"></div><div class="liquid" style="height:${remain}%"></div><div class="percent">${remain}%</div></div>
-    <div><div class="bottle-title">${esc(b.name)}</div>
+    <div class="bottle-visual" aria-label="ボトル残量 ${remain}%">
+      <svg class="bottle-svg" viewBox="0 0 80 140" role="img">
+        <defs>
+          <linearGradient id="liquidGradient-${b.id}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${remain <= 20 ? "#ef8a72" : "#f2d36f"}"/>
+            <stop offset="100%" stop-color="${remain <= 20 ? "#8c2922" : "#8a5d12"}"/>
+          </linearGradient>
+          <clipPath id="bottleClip-${b.id}">
+            <path d="M30 9h20v19c0 5 3 9 8 13 6 5 9 12 9 21v60c0 7-5 12-12 12H25c-7 0-12-5-12-12V62c0-9 3-16 9-21 5-4 8-8 8-13V9z"/>
+          </clipPath>
+        </defs>
+        <rect class="bottle-cap" x="29" y="2" width="22" height="10" rx="3"/>
+        <path class="bottle-glass" d="M30 9h20v19c0 5 3 9 8 13 6 5 9 12 9 21v60c0 7-5 12-12 12H25c-7 0-12-5-12-12V62c0-9 3-16 9-21 5-4 8-8 8-13V9z"/>
+        <rect x="13" y="${liquidTop}" width="54" height="${clipHeight}" 
+          fill="url(#liquidGradient-${b.id})" clip-path="url(#bottleClip-${b.id})"/>
+        <path class="bottle-shine" d="M25 44c-5 6-7 12-7 21v48"/>
+        <rect class="bottle-label" x="21" y="70" width="38" height="34" rx="5"/>
+        <text class="bottle-label-text" x="40" y="84">GRACE</text>
+        <text class="bottle-percent-text" x="40" y="98">${remain}%</text>
+      </svg>
+    </div>
+    <div>
+      <div class="bottle-title">${esc(b.name)}</div>
       <div class="bottle-info">${b.number ? `番号：${esc(b.number)}<br>` : ""}${b.shelf ? `場所：${esc(b.shelf)}<br>` : ""}${b.memo ? `メモ：${esc(b.memo)}` : ""}</div>
+      <div class="remain-bar"><div class="remain-fill${lowClass}" style="width:${remain}%"></div></div>
     </div>
     <div class="bottle-actions"><button class="secondary" onclick="editBottle('${customerId}','${b.id}')">編集</button><button class="danger" onclick="deleteBottle('${customerId}','${b.id}')">削除</button></div>
   </div>`;
