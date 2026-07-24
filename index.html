@@ -30,6 +30,14 @@ button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;font-size:1
 .danger{background:#321919;color:#ffb0b0;border:1px solid #6d3030}
 .ghost{background:transparent;color:var(--muted);border:1px solid #3b382f}
 .empty{text-align:center;padding:55px 18px;border:1px dashed #4a412d;border-radius:16px;color:var(--muted)}
+.search-summary{margin:0 0 14px;padding:14px 16px;background:linear-gradient(145deg,#1c1810,#111);
+ border:1px solid #5a4b27;border-radius:14px;color:var(--text)}
+.search-summary-title{font-weight:800;color:var(--gold2);margin-bottom:7px}
+.search-summary-line{font-size:13px;color:var(--muted);line-height:1.65}
+.missing-number{display:inline-block;margin:4px 5px 0 0;padding:5px 9px;border-radius:999px;
+ background:#321919;color:#ffb0b0;border:1px solid #6d3030;font-weight:800;font-size:12px}
+.no-missing{color:var(--ok);font-weight:700}
+
 .customer-card{background:linear-gradient(145deg,#171717,#101010);border:1px solid var(--line);
  border-radius:16px;margin-bottom:14px;overflow:hidden;box-shadow:0 12px 35px rgba(0,0,0,.22)}
 .customer-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px}
@@ -190,8 +198,84 @@ collection.orderBy("name").onSnapshot(snapshot => {
  $("status").className = "status sync-bad";
 });
 
+function numberValue(value){
+ const match = String(value ?? "").match(/\d+/);
+ return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
+}
+
+function getBottleSearchResults(q){
+ if(!q) return null;
+ const matches=[];
+ customers.forEach(c=>{
+  (c.bottles||[]).forEach(b=>{
+   if(String(b.name||"").toLowerCase().includes(q)){
+    matches.push({customer:c,bottle:b});
+   }
+  });
+ });
+ if(!matches.length) return null;
+
+ matches.sort((a,b)=>{
+  const numberDiff=numberValue(a.bottle.number)-numberValue(b.bottle.number);
+  if(numberDiff!==0) return numberDiff;
+  return String(a.customer.name||"").localeCompare(String(b.customer.name||""),"ja");
+ });
+
+ const numericNumbers=[...new Set(matches.map(x=>numberValue(x.bottle.number)).filter(Number.isFinite))].sort((a,b)=>a-b);
+ let missing=[];
+ if(numericNumbers.length>=2){
+  const min=numericNumbers[0];
+  const max=numericNumbers[numericNumbers.length-1];
+  const used=new Set(numericNumbers);
+  for(let n=min;n<=max;n++) if(!used.has(n)) missing.push(n);
+ }
+
+ return {matches,numericNumbers,missing};
+}
+
+function renderBottleSearch(results,q){
+ const numbers=results.numericNumbers;
+ const rangeText=numbers.length
+  ? `使用中の番号：${numbers[0]}〜${numbers[numbers.length-1]}（${numbers.length}本）`
+  : "数字のボトル番号はまだ登録されていません。";
+ const missingHtml=numbers.length<2
+  ? `<span class="search-summary-line">番号を2本以上登録すると、間の空き番号を表示します。</span>`
+  : results.missing.length
+   ? `<div class="search-summary-line">空いている番号：</div><div>${results.missing.map(n=>`<span class="missing-number">${n}</span>`).join("")}</div>`
+   : `<div class="no-missing">番号の抜けはありません。</div>`;
+
+ const cards=results.matches.map(({customer:c,bottle:b})=>`
+  <section class="customer-card" data-customer-id="${c.id}">
+   <div class="customer-head">
+    <div>
+     <div class="customer-name">${esc(c.name)}</div>
+     <div class="customer-meta">${c.nickname ? `あだ名：${esc(c.nickname)}<br>` : ""}${c.company ? `会社：${esc(c.company)}<br>` : ""}</div>
+    </div>
+    <div class="head-actions">
+     <button class="primary" onclick="openBottleModal('${c.id}')">＋ ボトル追加</button>
+     <button class="secondary" onclick="editCustomer('${c.id}')">お客様編集</button>
+    </div>
+   </div>
+   <div class="bottles">${bottleHtml(c.id,b)}</div>
+  </section>`).join("");
+
+ $("list").innerHTML=`
+  <div class="search-summary">
+   <div class="search-summary-title">「${esc(q)}」のボトル番号順</div>
+   <div class="search-summary-line">${rangeText}</div>
+   ${missingHtml}
+  </div>${cards}`;
+}
+
 function render(){
  const q = $("search").value.trim().toLowerCase();
+
+ const bottleSearch=getBottleSearchResults(q);
+ if(bottleSearch){
+  renderBottleSearch(bottleSearch,q);
+  return;
+ }
+
  const filtered = customers.filter(c => {
   const bottleText = (c.bottles || []).map(b => `${b.name} ${b.number} ${b.staff || ""} ${b.shelf} ${b.memo}`).join(" ");
   return `${c.name} ${c.nickname} ${c.company} ${c.birthday} ${formatBirthday(c.birthday)} ${c.memo} ${bottleText}`.toLowerCase().includes(q);
