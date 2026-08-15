@@ -3,71 +3,71 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="theme-color" content="#090909" />
+<meta name="theme-color" content="#faf6ec" />
 <title>GRACE Bottle Manager</title>
 <style>
 :root{
- --bg:#090909;--panel:#141414;--panel2:#1c1c1c;--gold:#d4af37;
- --gold2:#f0d77a;--text:#f7f2e5;--muted:#aaa28f;--danger:#d85c5c;
- --line:#393326;--ok:#73b98a;
+ --bg:#faf6ec;--panel:#ffffff;--panel2:#f6efdd;--gold:#c3986a;
+ --gold2:#9c7a42;--text:#332c20;--muted:#8c8272;--danger:#c94b4b;
+ --line:#e6dcc4;--ok:#3f9d68;
 }
 *{box-sizing:border-box}
-body{margin:0;background:linear-gradient(180deg,#050505,#111);color:var(--text);
+body{margin:0;background:linear-gradient(180deg,#fdfbf5,#f5efdd);color:var(--text);
  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
-header{position:sticky;top:0;z-index:10;background:rgba(9,9,9,.94);backdrop-filter:blur(12px);
+header{position:sticky;top:0;z-index:10;background:rgba(253,251,245,.92);backdrop-filter:blur(12px);
  border-bottom:1px solid var(--line);padding:18px 16px 14px}
 .brand{max-width:980px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
 h1{font-family:Georgia,serif;letter-spacing:.16em;color:var(--gold2);font-size:23px;margin:0}
 .sub{font-size:11px;color:var(--muted);letter-spacing:.12em;margin-top:4px}
 main{max-width:980px;margin:auto;padding:18px 14px 70px}
 .toolbar{display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:16px}
-input,textarea,select{width:100%;background:#0d0d0d;color:var(--text);border:1px solid #49402b;
+input,textarea,select{width:100%;background:#ffffff;color:var(--text);border:1px solid #ddd0b3;
  border-radius:10px;padding:12px;font-size:16px;outline:none}
 input:focus,textarea:focus,select:focus{border-color:var(--gold)}
 button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;font-size:14px;cursor:pointer}
-.primary{background:linear-gradient(135deg,#a77c10,#e1c25a);color:#151006}
-.secondary{background:#29251c;color:var(--gold2);border:1px solid #51462d}
-.danger{background:#321919;color:#ffb0b0;border:1px solid #6d3030}
-.ghost{background:transparent;color:var(--muted);border:1px solid #3b382f}
-.empty{text-align:center;padding:55px 18px;border:1px dashed #4a412d;border-radius:16px;color:var(--muted)}
-.search-summary{margin:0 0 14px;padding:14px 16px;background:linear-gradient(145deg,#1c1810,#111);
- border:1px solid #5a4b27;border-radius:14px;color:var(--text)}
+.primary{background:linear-gradient(135deg,#c9a15c,#ecd497);color:#3a2c12}
+.secondary{background:#f7f0dc;color:var(--gold2);border:1px solid #e3d3a8}
+.danger{background:#e0504f;color:#fff;border:1px solid #c93f3f}
+.ghost{background:transparent;color:var(--muted);border:1px solid #ddd0b3}
+.empty{text-align:center;padding:55px 18px;border:1px dashed #d9caa2;border-radius:16px;color:var(--muted)}
+.search-summary{margin:0 0 14px;padding:14px 16px;background:linear-gradient(145deg,#fbf5e6,#f4ebd0);
+ border:1px solid #e3d3a0;border-radius:14px;color:var(--text)}
 .search-summary-title{font-weight:800;color:var(--gold2);margin-bottom:7px}
 .search-summary-line{font-size:13px;color:var(--muted);line-height:1.65}
 .missing-number{display:inline-block;margin:4px 5px 0 0;padding:5px 9px;border-radius:999px;
- background:#321919;color:#ffb0b0;border:1px solid #6d3030;font-weight:800;font-size:12px}
+ background:#fbe6e6;color:#b23b3b;border:1px solid #efbcbc;font-weight:800;font-size:12px}
 .no-missing{color:var(--ok);font-weight:700}
 
-.customer-card{background:linear-gradient(145deg,#171717,#101010);border:1px solid var(--line);
- border-radius:16px;margin-bottom:14px;overflow:hidden;box-shadow:0 12px 35px rgba(0,0,0,.22)}
+.customer-card{background:#ffffff;border:1px solid var(--line);
+ border-radius:16px;margin-bottom:14px;overflow:hidden;box-shadow:0 10px 28px rgba(150,125,80,.14)}
 .customer-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px}
 .customer-name{font-size:20px;font-weight:800;color:var(--gold2)}
 .customer-meta{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5}
-.badge{display:inline-block;background:#2b2516;color:var(--gold2);border:1px solid #504526;
+.badge{display:inline-block;background:#f5ecd0;color:var(--gold2);border:1px solid #e6d5a8;
  border-radius:999px;padding:4px 9px;font-size:12px;margin-top:7px}
 .head-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 .head-actions button{padding:8px 10px;font-size:12px}
 .bottles{border-top:1px solid var(--line);padding:12px}
 .bottle{display:grid;grid-template-columns:68px 1fr auto;gap:12px;align-items:center;
- background:#0c0c0c;border:1px solid #2e2a20;border-radius:13px;padding:12px;margin-bottom:10px}
+ background:#faf6ea;border:1px solid #ecdfc0;border-radius:13px;padding:12px;margin-bottom:10px}
 .bottle:last-child{margin-bottom:0}
 .bottle-visual{width:72px;height:126px;margin:auto;position:relative;display:flex;
- align-items:flex-end;justify-content:center;filter:drop-shadow(0 8px 10px rgba(0,0,0,.45))}
+ align-items:flex-end;justify-content:center;filter:drop-shadow(0 6px 8px rgba(120,100,60,.28))}
 .bottle-svg{width:68px;height:122px;overflow:visible}
-.bottle-glass{fill:#141414;stroke:#d6b95f;stroke-width:3}
-.bottle-cap{fill:#d6b95f}
-.bottle-label{fill:#201b10;stroke:#d6b95f;stroke-width:1.5}
-.bottle-label-text{fill:#f4dc8b;font-size:11px;font-weight:800;text-anchor:middle}
+.bottle-glass{fill:#2a2318;stroke:#c3986a;stroke-width:3}
+.bottle-cap{fill:#c3986a}
+.bottle-label{fill:#241f14;stroke:#c3986a;stroke-width:1.5}
+.bottle-label-text{fill:#f0d9a0;font-size:11px;font-weight:800;text-anchor:middle}
 .bottle-percent-text{fill:#fff;font-size:12px;font-weight:900;text-anchor:middle;
  paint-order:stroke;stroke:#000;stroke-width:3px;stroke-linejoin:round}
 .bottle-shine{fill:none;stroke:rgba(255,255,255,.35);stroke-width:2;stroke-linecap:round}
-.remain-bar{height:7px;background:#262116;border-radius:999px;overflow:hidden;margin-top:8px;border:1px solid #4e4328}
-.remain-fill{height:100%;background:linear-gradient(90deg,#8a5d12,#f0d77a)}
-.remain-fill.low{background:linear-gradient(90deg,#7f211d,#e06555)}
-.bottle-title{font-weight:800;font-size:16px;color:#fff}
+.remain-bar{height:7px;background:#efe4c4;border-radius:999px;overflow:hidden;margin-top:8px;border:1px solid #e2d19f}
+.remain-fill{height:100%;background:linear-gradient(90deg,#a97c22,#f0d77a)}
+.remain-fill.low{background:linear-gradient(90deg,#c0433e,#e88b7d)}
+.bottle-title{font-weight:800;font-size:16px;color:var(--text)}
 .bottle-info{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.55}
 .bottle-number{display:inline-flex;align-items:baseline;gap:7px;margin:7px 0 5px;padding:6px 11px;
- border:1px solid #6e5b2c;border-radius:10px;background:linear-gradient(135deg,#2b2415,#17130c)}
+ border:1px solid #ddc98a;border-radius:10px;background:linear-gradient(135deg,#faf2dc,#f2e4bd)}
 .bottle-number-label{font-size:11px;color:var(--muted);font-weight:700}
 .bottle-number-value{
  font-family:Baskerville,"Times New Roman",Georgia,serif;
@@ -77,14 +77,13 @@ button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;font-size:1
  font-weight:400;
  letter-spacing:.08em;
  font-variant-numeric:lining-nums tabular-nums;
- text-shadow:0 1px 10px rgba(240,215,122,.15)
 }
 .staff-badge{display:inline-block;margin:5px 0 2px;padding:5px 9px;border-radius:999px;
- background:#241e13;border:1px solid #5a4b28;color:var(--gold2);font-size:12px;font-weight:700}
+ background:#f5ecd0;border:1px solid #e6d5a8;color:var(--gold2);font-size:12px;font-weight:700}
 .bottle-actions{display:flex;flex-direction:column;gap:6px}
 .bottle-actions button{padding:7px 9px;font-size:12px}
-dialog{width:min(620px,calc(100% - 24px));border:1px solid #5a4b27;border-radius:18px;background:#151515;color:var(--text);padding:0}
-dialog::backdrop{background:rgba(0,0,0,.75);backdrop-filter:blur(4px)}
+dialog{width:min(620px,calc(100% - 24px));border:1px solid var(--line);border-radius:18px;background:#ffffff;color:var(--text);padding:0;box-shadow:0 20px 50px rgba(120,100,60,.25)}
+dialog::backdrop{background:rgba(45,35,15,.45);backdrop-filter:blur(4px)}
 .modal-head{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
 .modal-head h2{font-size:18px;color:var(--gold2);margin:0}
 .form{padding:16px 18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -93,7 +92,7 @@ label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
 .modal-actions{display:flex;justify-content:flex-end;gap:9px;padding:0 18px 18px}
 .status{font-size:12px;color:var(--muted);text-align:center;margin:10px 0 0}
 .sync-ok{color:var(--ok)}
-.sync-bad{color:#ff9d9d}
+.sync-bad{color:#c23b3b}
 @media(max-width:620px){
  .toolbar{grid-template-columns:1fr}.toolbar button{width:100%}
  .customer-head{flex-direction:column}.head-actions{justify-content:flex-start}
