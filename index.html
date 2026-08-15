@@ -45,6 +45,9 @@ button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;font-size:1
 .customer-meta{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5}
 .badge{display:inline-block;background:#f5ecd0;color:var(--gold2);border:1px solid #e6d5a8;
  border-radius:999px;padding:4px 9px;font-size:12px;margin-top:7px}
+.visit-info{font-size:13px;color:var(--muted);margin-top:7px;line-height:1.5}
+.visit-info b{color:var(--gold2);font-weight:700}
+.visit{background:linear-gradient(135deg,#eadeb8,#f4ead0);color:#5c451c;border:1px solid #ddc98a}
 .head-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 .head-actions button{padding:8px 10px;font-size:12px}
 .bottles{border-top:1px solid var(--line);padding:12px}
@@ -61,7 +64,8 @@ button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;font-size:1
 .bottle-percent-text{fill:#fff;font-size:12px;font-weight:900;text-anchor:middle;
  paint-order:stroke;stroke:#000;stroke-width:3px;stroke-linejoin:round}
 .bottle-shine{fill:none;stroke:rgba(255,255,255,.35);stroke-width:2;stroke-linecap:round}
-.remain-bar{height:7px;background:#efe4c4;border-radius:999px;overflow:hidden;margin-top:8px;border:1px solid #e2d19f}
+.remain-field{display:none}
+.remain-bar{display:none;height:7px;background:#efe4c4;border-radius:999px;overflow:hidden;margin-top:8px;border:1px solid #e2d19f}
 .remain-fill{height:100%;background:linear-gradient(90deg,#a97c22,#f0d77a)}
 .remain-fill.low{background:linear-gradient(90deg,#c0433e,#e88b7d)}
 .bottle-title{font-weight:800;font-size:16px;color:var(--text)}
@@ -140,7 +144,7 @@ label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
    <div><label>ボトル番号</label><input id="bNumber" placeholder="例：121" /></div>
    <div><label>担当キャスト（自由入力）</label><input id="bStaff" placeholder="例：りさ" /></div>
    <div><label>保管場所</label><input id="bShelf" placeholder="例：棚3段目" /></div>
-   <div><label>残量：<strong id="remainLabel">100%</strong></label><input id="bRemain" type="range" min="0" max="100" step="5" value="100" oninput="remainLabel.textContent=this.value+'%'" /></div>
+   <div class="remain-field"><label>残量：<strong id="remainLabel">100%</strong></label><input id="bRemain" type="range" min="0" max="100" step="5" value="100" oninput="remainLabel.textContent=this.value+'%'" /></div>
    <div class="full"><label>メモ</label><textarea id="bMemo" rows="3"></textarea></div>
   </div>
   <div class="modal-actions"><button type="button" class="ghost" onclick="bottleDialog.close()">キャンセル</button><button class="primary">保存</button></div>
@@ -197,6 +201,40 @@ collection.orderBy("name").onSnapshot(snapshot => {
  $("status").className = "status sync-bad";
 });
 
+function formatLastVisit(ts){
+ const date = ts.toDate ? ts.toDate() : new Date(ts);
+ const dateStr = `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,"0")}/${String(date.getDate()).padStart(2,"0")}`;
+ const now = new Date();
+ let months = (now.getFullYear()-date.getFullYear())*12 + (now.getMonth()-date.getMonth());
+ if(now.getDate() < date.getDate()) months--;
+ if(months<0) months=0;
+ const years = Math.floor(months/12);
+ const remMonths = months%12;
+ let agoStr;
+ if(years>0 && remMonths>0) agoStr = `${years}年${remMonths}か月`;
+ else if(years>0) agoStr = `${years}年`;
+ else if(months>0) agoStr = `${months}か月`;
+ else agoStr = "1か月未満";
+ return {dateStr, agoStr};
+}
+
+function visitInfoHtml(c){
+ if(!c.lastVisitAt) return `<div class="visit-info">最終来店：記録なし</div>`;
+ const {dateStr, agoStr} = formatLastVisit(c.lastVisitAt);
+ return `<div class="visit-info">最終来店：<b>${dateStr}</b><br>最終来店から${agoStr}</div>`;
+}
+
+async function markVisit(customerId){
+ const c = customers.find(x=>x.id===customerId); if(!c) return;
+ if(!confirm("本日の来店として記録しますか？")) return;
+ try{
+  await collection.doc(customerId).update({lastVisitAt:firebase.firestore.FieldValue.serverTimestamp()});
+  alert("最終来店日を更新しました");
+ }catch(err){
+  alert("更新できませんでした："+err.message);
+ }
+}
+
 function numberValue(value){
  const match = String(value ?? "").match(/\d+/);
  return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
@@ -249,8 +287,10 @@ function renderBottleSearch(results,q){
     <div>
      <div class="customer-name">${esc(c.name)}</div>
      <div class="customer-meta">${c.nickname ? `あだ名：${esc(c.nickname)}<br>` : ""}${c.company ? `会社：${esc(c.company)}<br>` : ""}</div>
+     ${visitInfoHtml(c)}
     </div>
     <div class="head-actions">
+     <button class="visit" onclick="markVisit('${c.id}')">来店</button>
      <button class="primary" onclick="openBottleModal('${c.id}')">＋ ボトル追加</button>
      <button class="secondary" onclick="editCustomer('${c.id}')">お客様編集</button>
     </div>
@@ -291,8 +331,10 @@ function render(){
      <div class="customer-name">${esc(c.name)}</div>
      <div class="customer-meta">${c.nickname ? `あだ名：${esc(c.nickname)}<br>` : ""}${c.company ? `会社：${esc(c.company)}<br>` : ""}${c.birthday ? `誕生日：${formatBirthday(c.birthday)}<br>` : ""}${c.memo ? `メモ：${esc(c.memo)}` : ""}</div>
      <span class="badge">ボトル ${bottles.length}本</span>
+     ${visitInfoHtml(c)}
     </div>
     <div class="head-actions">
+     <button class="visit" onclick="markVisit('${c.id}')">来店</button>
      <button class="primary" onclick="openBottleModal('${c.id}')">＋ ボトル追加</button>
      <button class="secondary" onclick="editCustomer('${c.id}')">お客様編集</button>
      <button class="danger" onclick="deleteCustomer('${c.id}')">削除</button>
