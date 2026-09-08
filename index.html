@@ -171,6 +171,7 @@ let editingCustomerId = null;
 let bottleCustomerId = null;
 let editingBottleId = null;
 let pendingNewCustomerId = null;
+let savingBottle = false;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -235,9 +236,35 @@ async function markVisit(customerId){
  }
 }
 
+// Comparison keys only: never rewrite stored brand names or number fields.
+function normalizeBrand(value){
+ const name=String(value ?? "").normalize("NFKC").trim().toLowerCase().replace(/﨑/g,"崎");
+ return name==="バラン" ? "バランタイン" : name;
+}
+function bottleNumbers(value){
+ return [...new Set((String(value ?? "").normalize("NFKC").match(/[0-9]+/g)||[])
+  .map(Number).filter(Number.isSafeInteger))];
+}
 function numberValue(value){
- const match = String(value ?? "").match(/\d+/);
- return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
+ const numbers=bottleNumbers(value);
+ return numbers.length ? Math.min(...numbers) : Number.POSITIVE_INFINITY;
+}
+function findBottleConflicts(records,bottle,customerId,excludedBottleId){
+ const brand=normalizeBrand(bottle.name);
+ const wanted=new Set(bottleNumbers(bottle.number));
+ const conflicts=[];
+ records.forEach(c=>(c.bottles||[]).forEach(b=>{
+  if(c.id===customerId && excludedBottleId!==null && b.id===excludedBottleId) return;
+  if(normalizeBrand(b.name)!==brand) return;
+  const numbers=bottleNumbers(b.number).filter(n=>wanted.has(n));
+  if(numbers.length) conflicts.push({customer:c,bottle:b,numbers});
+ }));
+ return conflicts;
+}
+function conflictMessage(conflicts){
+ return "同じ銘柄で使用中の番号があります。保存していません。\n"+
+  conflicts.map(({customer,bottle,numbers})=>
+   `${numbers.join("・")}番：${customer.name||"お名前未登録"}様（${bottle.name}／登録番号 ${bottle.number}）`).join("\n");
 }
 
 function getBottleSearchResults(q){
@@ -245,7 +272,7 @@ function getBottleSearchResults(q){
  const matches=[];
  customers.forEach(c=>{
   (c.bottles||[]).forEach(b=>{
-   if(String(b.name||"").toLowerCase().includes(q)){
+   if(normalizeBrand(b.name).includes(normalizeBrand(q))){
     matches.push({customer:c,bottle:b});
    }
   });
@@ -258,28 +285,42 @@ function getBottleSearchResults(q){
   return String(a.customer.name||"").localeCompare(String(b.customer.name||""),"ja");
  });
 
- const numericNumbers=[...new Set(matches.map(x=>numberValue(x.bottle.number)).filter(Number.isFinite))].sort((a,b)=>a-b);
- let missing=[];
- if(numericNumbers.length>=2){
-  const min=numericNumbers[0];
-  const max=numericNumbers[numericNumbers.length-1];
-  const used=new Set(numericNumbers);
-  for(let n=min;n<=max;n++) if(!used.has(n)) missing.push(n);
- }
-
- return {matches,numericNumbers,missing};
+ const groups=new Map();
+ matches.forEach(({bottle})=>{
+  const key=normalizeBrand(bottle.name);
+  if(!groups.has(key)) groups.set(key,{name:bottle.name,used:new Set()});
+  bottleNumbers(bottle.number).forEach(n=>groups.get(key).used.add(n));
+ });
+ const summaries=[...groups.values()].map(({name,used})=>{
+  const numericNumbers=[...used].sort((a,b)=>a-b);
+  const missing=[];
+  // Bound only the displayed list to keep unusually large legacy numbers responsive.
+  const limit=1000;
+  for(let i=1;i<numericNumbers.length && missing.length<limit;i++){
+   for(let n=numericNumbers[i-1]+1;n<numericNumbers[i] && missing.length<limit;n++) missing.push(n);
+  }
+  const totalMissing=numericNumbers.length ? numericNumbers.at(-1)-numericNumbers[0]+1-numericNumbers.length : 0;
+  return {name,numericNumbers,missing,truncated:totalMissing>missing.length};
+ });
+ return {matches,summaries};
 }
 
 function renderBottleSearch(results,q){
- const numbers=results.numericNumbers;
- const rangeText=numbers.length
-  ? `使用中の番号：${numbers[0]}〜${numbers[numbers.length-1]}（${numbers.length}本）`
-  : "数字のボトル番号はまだ登録されていません。";
- const missingHtml=numbers.length<2
-  ? `<span class="search-summary-line">番号を2本以上登録すると、間の空き番号を表示します。</span>`
-  : results.missing.length
-   ? `<div class="search-summary-line">空いている番号：</div><div>${results.missing.map(n=>`<span class="missing-number">${n}</span>`).join("")}</div>`
-   : `<div class="no-missing">番号の抜けはありません。</div>`;
+ const summaryHtml=results.summaries.map(summary=>{
+  const numbers=summary.numericNumbers;
+  const rangeText=numbers.length
+   ? `使用中の番号：${numbers[0]}〜${numbers[numbers.length-1]}（${numbers.length}番号）`
+   : "数字のボトル番号はまだ登録されていません。";
+  const missingHtml=numbers.length<2
+   ? `<span class="search-summary-line">番号を2つ以上登録すると、間の空き番号を表示します。</span>`
+   : summary.missing.length
+    ? `<div class="search-summary-line">空いている番号：</div><div>${summary.missing.map(n=>`<span class="missing-number">${n}</span>`).join("")}</div>${summary.truncated ? '<div class="search-summary-line">空き番号は先頭の1,000件を表示しています。</div>' : ""}`
+    : `<div class="no-missing">番号の抜けはありません。</div>`;
+  return `<div class="search-summary">
+   <div class="search-summary-title">${esc(summary.name)} のボトル番号順</div>
+   <div class="search-summary-line">${rangeText}</div>${missingHtml}
+  </div>`;
+ }).join("");
 
  const cards=results.matches.map(({customer:c,bottle:b})=>`
   <section class="customer-card" data-customer-id="${c.id}">
@@ -298,12 +339,7 @@ function renderBottleSearch(results,q){
    <div class="bottles">${bottleHtml(c.id,b)}</div>
   </section>`).join("");
 
- $("list").innerHTML=`
-  <div class="search-summary">
-   <div class="search-summary-title">「${esc(q)}」のボトル番号順</div>
-   <div class="search-summary-line">${rangeText}</div>
-   ${missingHtml}
-  </div>${cards}`;
+ $("list").innerHTML=summaryHtml+cards;
 }
 
 function render(){
@@ -429,12 +465,46 @@ function editBottle(customerId,bottleId){
 }
 async function saveBottle(e){
  e.preventDefault();
- const c=customers.find(x=>x.id===bottleCustomerId); if(!c) return;
- const bottle={id:editingBottleId||crypto.randomUUID(),name:$("bName").value.trim(),number:$("bNumber").value.trim(),staff:$("bStaff").value.trim(),shelf:$("bShelf").value.trim(),remain:Number($("bRemain").value),memo:$("bMemo").value.trim()};
- const bottles=[...(c.bottles||[])];
- if(editingBottleId){const i=bottles.findIndex(x=>x.id===editingBottleId); bottles[i]=bottle}else bottles.push(bottle);
- try{await collection.doc(c.id).update({bottles,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});bottleDialog.close()}catch(err){alert("保存できませんでした："+err.message)}
+ if(savingBottle) return;
+ const customerId=bottleCustomerId;
+ const originalBottleId=editingBottleId;
+ if(!customerId) return;
+ const bottle={id:originalBottleId||crypto.randomUUID(),name:$("bName").value.trim(),number:$("bNumber").value.trim(),staff:$("bStaff").value.trim(),shelf:$("bShelf").value.trim(),remain:Number($("bRemain").value),memo:$("bMemo").value.trim()};
+ if(!bottle.name){alert("ボトル名を入力してください。");return;}
+ savingBottle=true;
+ const controls=[...$("bottleDialog").querySelectorAll("button,input,textarea")];
+ controls.forEach(control=>control.disabled=true);
+ try{
+  // Always obtain the full server collection, including customers without a name.
+  const snapshot=await collection.get({source:"server"});
+  // Read all discovered customer documents in one transaction so concurrent bottle
+  // updates on those documents cause Firestore to retry the duplicate check.
+  await db.runTransaction(async transaction=>{
+   const docs=await Promise.all(snapshot.docs.map(doc=>transaction.get(doc.ref)));
+   const records=docs.filter(doc=>doc.exists).map(doc=>({...doc.data(),id:doc.id}));
+   const c=records.find(c=>c.id===customerId);
+   if(!c) throw new Error("お客様データが見つかりません。画面を更新してください。");
+   const conflicts=findBottleConflicts(records,bottle,customerId,originalBottleId);
+   if(conflicts.length) throw new Error(conflictMessage(conflicts));
+   const bottles=[...(c.bottles||[])];
+   if(originalBottleId){
+    const i=bottles.findIndex(b=>b.id===originalBottleId);
+    if(i<0) throw new Error("編集対象のボトルが見つかりません。画面を更新してください。");
+    bottles[i]={...bottles[i],...bottle};
+   }else bottles.push(bottle);
+   transaction.update(collection.doc(customerId),{bottles,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  });
+  // onSnapshot drives the displayed numbers from the updated Firebase data.
+  render();
+  bottleDialog.close();
+ }catch(err){
+  alert("保存できませんでした："+err.message);
+ }finally{
+  savingBottle=false;
+  controls.forEach(control=>control.disabled=false);
+ }
 }
+
 async function deleteBottle(customerId,bottleId){
  const c=customers.find(x=>x.id===customerId); const b=(c?.bottles||[]).find(x=>x.id===bottleId); if(!c||!b) return;
  if(!confirm(`${b.name}を削除しますか？`)) return;

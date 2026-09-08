@@ -1,0 +1,32 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8').match(/<script>\n([\s\S]*?)<\/script>/)[1];
+function setup(records){
+ const elements={};const alerts=[];let listener;let writes=0;let offline=false;let server=structuredClone(records);
+ const el=id=>elements[id]??=( {value:'',innerHTML:'',textContent:'',className:'',disabled:false,close(){this.closed=true},querySelectorAll(){return [el('submit')]}} );
+ const docs=()=>server.map(c=>({id:c.id,exists:true,ref:{id:c.id},data:()=>structuredClone(c)}));
+ const publish=()=>listener({docs:docs()});
+ const collection={orderBy:()=>({onSnapshot:fn=>{listener=fn}}),doc:id=>({id}),get:async opts=>{assert.equal(opts.source,'server');if(offline)throw Error('offline');return {docs:docs()}}};
+ const db={collection:()=>collection,runTransaction:async fn=>{let updates=[];await fn({get:async ref=>docs().find(d=>d.id===ref.id)||{exists:false},update:(ref,data)=>updates.push([ref,data])});for(const [ref,data]of updates){Object.assign(server.find(c=>c.id===ref.id),data);writes++}publish()}};
+ const firestore=()=>db;firestore.FieldValue={serverTimestamp:()=>123};
+ const ctx=vm.createContext({firebase:{initializeApp(){},firestore},document:{getElementById:el},bottleDialog:el('bottleDialog'),crypto:{randomUUID:()=>`new-${writes}`},alert:s=>alerts.push(s),console,requestAnimationFrame:fn=>fn()});
+ vm.runInContext(source,ctx);publish();
+ return {ctx,el,alerts,publish,get writes(){return writes},get server(){return server},set offline(v){offline=v},run:s=>vm.runInContext(s,ctx),async save(customer,editing=null,name='吉四六',number='10'){el('bName').value=name;el('bNumber').value=number;el('bRemain').value='100';ctx.targetCustomer=customer;ctx.targetBottle=editing;return vm.runInContext('bottleCustomerId=targetCustomer;editingBottleId=targetBottle;saveBottle({preventDefault(){}})',ctx)}};
+}
+const b=(id,name,number)=>({id,name,number,remain:100});
+const fixture=()=>[{id:'a',name:'テストA',bottles:[b('a1','吉四六','9・11')]},{id:'b',name:'テストB',bottles:[]}];
+test('all numbers and fullwidth digits; legacy notes; deduplication',()=>{const h=setup([]);assert.equal(h.run('JSON.stringify(bottleNumbers("２９２・184・3・3"))'),'[292,184,3]');assert.equal(h.run('JSON.stringify(bottleNumbers("35・37"))'),'[35,37]');assert.equal(h.run('JSON.stringify(bottleNumbers("22、23 / 79 岩井"))'),'[22,23,79]')});
+test('save available number removes it after Firebase snapshot and repeat save is blocked with owner',async()=>{const h=setup(fixture());h.el('search').value='吉四六';h.run('render()');assert.match(h.el('list').innerHTML,/missing-number">10</);await h.save('b');assert.equal(h.writes,1);assert.doesNotMatch(h.el('list').innerHTML,/missing-number">10</);h.publish();assert.doesNotMatch(h.el('list').innerHTML,/missing-number">10</);await h.save('a');assert.equal(h.writes,1);assert.match(h.alerts[0],/テストB様/)});
+test('same number allowed across brands, aliases blocked',async()=>{const h=setup(fixture());await h.save('b',null,'吉四六','10');await h.save('a',null,'バラン','10');assert.equal(h.writes,2);await h.save('b',null,'バランタイン','10');assert.equal(h.writes,2);assert.match(h.alerts[0],/テストA様/)});
+test('AO/Ao and 山崎/山﨑 normalized; age variants remain independent',async()=>{const h=setup([{id:'a',name:'A',bottles:[b('1','AO','10'),b('2','山﨑','20')]},{id:'b',name:'B',bottles:[]}]);await h.save('b',null,'Ao','10');await h.save('b',null,'山崎','20');assert.equal(h.writes,0);await h.save('b',null,'山崎12年','20');assert.equal(h.writes,1)});
+test('edit excludes only itself; conflicts in same and different customers blocked',async()=>{const h=setup([{id:'a',name:'A',bottles:[b('1','吉四六','35・37'),b('2','吉四六','38')]},{id:'b',name:'B',bottles:[b('1','吉四六','39')]}]);await h.save('a','1','吉四六','35・37');assert.equal(h.writes,1);await h.save('a','1','吉四六','37・38');await h.save('a','1','吉四六','39');assert.equal(h.writes,1);assert.equal(h.alerts.length,2)});
+test('search summaries separated by full brand; alias search covers both forms',()=>{const h=setup([{id:'a',name:'A',bottles:[b('1','山崎','1・3'),b('2','山崎12年','2・4'),b('3','山﨑','5'),b('4','バラン','1'),b('5','バランタイン','3')]}]);assert.equal(h.run('getBottleSearchResults("山崎").summaries.length'),2);assert.equal(h.run('JSON.stringify(getBottleSearchResults("山崎").summaries[0].missing)'),'[2,4]');assert.equal(h.run('getBottleSearchResults("バランタイン").matches.length'),2)});
+test('fresh server data blocks conflict even when listener is stale',async()=>{const h=setup(fixture());h.server[0].bottles.push(b('late','吉四六','10'));await h.save('b');assert.equal(h.writes,0)});
+test('fresh server array preserves concurrent additions and unknown fields',async()=>{const h=setup(fixture());h.server[1].bottles.push({...b('late','AO','22'),custom:'preserve'});await h.save('b');assert.equal(h.server[1].bottles.length,2);assert.equal(h.server[1].bottles[0].custom,'preserve')});
+test('missing edited bottle and offline save fail closed',async()=>{const h=setup(fixture());await h.save('b','deleted');assert.equal(h.writes,0);h.offline=true;await h.save('b');assert.equal(h.writes,0);assert.equal(h.el('submit').disabled,false)});
+test('double submit saves once',async()=>{const h=setup(fixture());await Promise.all([h.save('b'),h.save('b')]);assert.equal(h.writes,1)});
+test('legacy duplicate records are not changed by read or render',()=>{const data=[{id:'a',name:'A',bottles:[b('1','吉四六','10'),b('2','吉四六','10')]}];const h=setup(data);h.el('search').value='吉四六';h.run('render()');assert.deepEqual(h.server,data);assert.equal(h.writes,0)});
+test('山崎 and 白州 are independent; combined legacy brand is never split',async()=>{const h=setup([{id:'a',name:'A',bottles:[b('1','山崎 白州','10'),b('2','山崎','20')]},{id:'b',name:'B',bottles:[]}]);await h.save('b',null,'白州','20');await h.save('b',null,'山崎','10');await h.save('b',null,'白州','10');assert.equal(h.writes,3);assert.equal(h.server[0].bottles[0].name,'山崎 白州')});
+test('editing preserves unknown stored bottle fields',async()=>{const h=setup([{id:'a',name:'A',bottles:[{...b('1','吉四六','10'),custom:'keep'}]}]);await h.save('a','1');assert.equal(h.server[0].bottles[0].custom,'keep')});
