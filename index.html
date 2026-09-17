@@ -126,7 +126,7 @@ label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
  <div id="list"></div>
  <div id="status" class="status">Firebaseに接続しています…</div>
  <!-- 本番更新時にこの1か所を更新：Ver. YYYY.MM.DD-N（同日の更新は末尾番号を増やす） -->
- <footer class="app-version">Ver. 2026.09.17-1</footer>
+ <footer class="app-version">Ver. 2026.09.17-2</footer>
 </main>
 
 <dialog id="customerDialog">
@@ -390,6 +390,18 @@ function render(){
  }).join("");
 }
 
+function formatBottleCreatedAt(value){
+ if(typeof value!=="string" || !value) return "登録日時不明";
+ const date=new Date(value);
+ if(Number.isNaN(date.getTime())) return "登録日時不明";
+ const parts=new Intl.DateTimeFormat("ja-JP",{
+  timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit",
+  hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+ }).formatToParts(date);
+ const part=type=>parts.find(p=>p.type===type).value;
+ return `登録日時：${part("year")}/${part("month")}/${part("day")} ${part("hour")}:${part("minute")}`;
+}
+
 function bottleHtml(customerId,b){
  const remain = Math.max(0, Math.min(100, Number(b.remain ?? 100)));
  const liquidTop = 103 - (remain * 0.78);
@@ -420,6 +432,7 @@ function bottleHtml(customerId,b){
    <div class="bottle-title">${esc(b.name)}</div>
    ${b.number ? `<div class="bottle-number"><span class="bottle-number-label">No.</span><span class="bottle-number-value">${esc(b.number)}</span></div>` : ""}
    ${b.staff ? `<div class="staff-badge">担当：${esc(b.staff)}</div>` : ""}
+   <div class="bottle-info">${esc(formatBottleCreatedAt(b.createdAt))}</div>
    <div class="bottle-info">${b.shelf ? `場所：${esc(b.shelf)}<br>` : ""}${b.memo ? `メモ：${esc(b.memo)}` : ""}</div>
    <div class="remain-bar"><div class="remain-fill${lowClass}" style="width:${remain}%"></div></div>
   </div>
@@ -498,7 +511,11 @@ async function saveBottle(e){
     const i=bottles.findIndex(b=>b.id===originalBottleId);
     if(i<0) throw new Error("編集対象のボトルが見つかりません。画面を更新してください。");
     bottles[i]={...bottles[i],...bottle};
-   }else bottles.push(bottle);
+   }else{
+    // An ISO string is safe inside the bottles array; serverTimestamp transforms are not.
+    // Capture registration time from the device clock only for a new bottle.
+    bottles.push({...bottle,createdAt:new Date().toISOString()});
+   }
    transaction.update(collection.doc(customerId),{bottles,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
   });
   // onSnapshot drives the displayed numbers from the updated Firebase data.

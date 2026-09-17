@@ -30,3 +30,21 @@ test('double submit saves once',async()=>{const h=setup(fixture());await Promise
 test('legacy duplicate records are not changed by read or render',()=>{const data=[{id:'a',name:'A',bottles:[b('1','吉四六','10'),b('2','吉四六','10')]}];const h=setup(data);h.el('search').value='吉四六';h.run('render()');assert.deepEqual(h.server,data);assert.equal(h.writes,0)});
 test('山崎 and 白州 are independent; combined legacy brand is never split',async()=>{const h=setup([{id:'a',name:'A',bottles:[b('1','山崎 白州','10'),b('2','山崎','20')]},{id:'b',name:'B',bottles:[]}]);await h.save('b',null,'白州','20');await h.save('b',null,'山崎','10');await h.save('b',null,'白州','10');assert.equal(h.writes,3);assert.equal(h.server[0].bottles[0].name,'山崎 白州')});
 test('editing preserves unknown stored bottle fields',async()=>{const h=setup([{id:'a',name:'A',bottles:[{...b('1','吉四六','10'),custom:'keep'}]}]);await h.save('a','1');assert.equal(h.server[0].bottles[0].custom,'keep')});
+test('new bottle records registration time; later edits preserve it',async()=>{
+ const h=setup(fixture());const before=Date.now();await h.save('b');const after=Date.now();
+ const saved=h.server[1].bottles[0];assert.equal(typeof saved.createdAt,'string');
+ assert(Date.parse(saved.createdAt)>=before && Date.parse(saved.createdAt)<=after);
+ const original=saved.createdAt;await h.save('b',saved.id,'吉四六','12');
+ assert.equal(h.server[1].bottles[0].createdAt,original);
+ assert.match(h.run('bottleHtml("b",customers[1].bottles[0])'),/登録日時：[0-9]{4}\//);
+});
+test('legacy edit never invents a registration date',async()=>{
+ const h=setup(fixture());await h.save('a','a1','吉四六','9・11');
+ assert.equal(Object.hasOwn(h.server[0].bottles[0],'createdAt'),false);
+ assert.match(h.run('bottleHtml("a",customers[0].bottles[0])'),/登録日時不明/);
+});
+test('registration date uses Japan time across midnight; invalid and absent dates stay unknown',()=>{
+ const h=setup([]);
+ assert.equal(h.run('formatBottleCreatedAt("2026-09-17T15:05:00.000Z")'),'登録日時：2026/09/18 00:05');
+ for(const value of [undefined,null,'','invalid']){h.ctx.testValue=value;assert.equal(h.run('formatBottleCreatedAt(testValue)'),'登録日時不明');}
+});
